@@ -24,7 +24,7 @@ headers = {
 }
 
 
-def get_latest_message():
+def get_messages():
 
     r = requests.get(
         CHANNEL_URL,
@@ -42,37 +42,33 @@ def get_latest_message():
         class_="tgme_widget_message_text"
     )
 
-    if messages:
-        return messages[-1].get_text(
-            "\n",
-            strip=True
+    result = []
+
+    for msg in messages[-20:]:
+
+        result.append(
+            msg.get_text(
+                "\n",
+                strip=True
+            )
         )
 
-    return None
+    return result
 
 
 
 def extract_configs(text):
 
-    patterns = [
-        r"vless://\S+",
-        r"vmess://\S+",
-        r"trojan://\S+",
-        r"ss://\S+",
-        r"ssr://\S+"
-    ]
+    pattern = (
+        r"(?:vless|vmess|trojan|ss|ssr)://[^\s]+"
+    )
 
-    configs = []
+    configs = re.findall(
+        pattern,
+        text
+    )
 
-    for pattern in patterns:
-        configs.extend(
-            re.findall(
-                pattern,
-                text
-            )
-        )
-
-    return "\n\n".join(configs)
+    return configs
 
 
 
@@ -85,6 +81,7 @@ def read_old_message():
             "r",
             encoding="utf-8"
         ) as f:
+
             return f.read()
 
     return ""
@@ -98,28 +95,35 @@ def save_message(message):
         "w",
         encoding="utf-8"
     ) as f:
+
         f.write(message)
 
 
 
-def send_email(message):
+def send_email(configs):
 
     msg = MIMEMultipart()
 
     msg["From"] = GMAIL_USER
     msg["To"] = GMAIL_TO
-    msg["Subject"] = f"کانفیگ جدید از {CHANNEL_NAME}"
+
+    msg["Subject"] = (
+        CHANNEL_NAME
+        +
+        " - کانفیگ جدید V2Ray"
+    )
 
 
-    body = f"""
-کانفیگ جدید از:
-
-{CHANNEL_NAME}
-
----------------------
-
-{message}
-"""
+    body = (
+        "کانفیگ جدید پیدا شد:\n\n"
+        "منبع:\n"
+        +
+        CHANNEL_NAME
+        +
+        "\n\n-----------------\n\n"
+        +
+        "\n\n".join(configs)
+    )
 
 
     msg.attach(
@@ -154,43 +158,54 @@ def send_email(message):
 
 
 
-new_message = get_latest_message()
+messages = get_messages()
 
 
-if new_message is None:
-
-    print("پیامی دریافت نشد")
-    exit()
-
+all_text = "\n\n".join(messages)
 
 
 configs = extract_configs(
-    new_message
+    all_text
 )
 
 
-if configs == "":
+if not configs:
 
-    print("پیام غیر کانفیگ رد شد")
+    print(
+        "هیچ کانفیگی پیدا نشد"
+    )
+
     exit()
 
+
+
+config_text = "\n\n".join(configs)
 
 
 old_message = read_old_message()
 
 
 
-if configs != old_message:
+if config_text != old_message:
 
-    print("کانفیگ جدید پیدا شد")
 
-    save_message(configs)
+    save_message(
+        config_text
+    )
 
-    send_email(configs)
 
-    print("ایمیل ارسال شد")
+    send_email(
+        configs
+    )
+
+
+    print(
+        "ایمیل ارسال شد"
+    )
 
 
 else:
 
-    print("کانفیگ جدیدی وجود ندارد")
+    print(
+        "کانفیگ جدیدی وجود ندارد"
+    )
